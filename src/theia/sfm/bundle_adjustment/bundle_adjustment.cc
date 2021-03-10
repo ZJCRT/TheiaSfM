@@ -44,11 +44,11 @@
 namespace theia {
 
 // Bundle adjust the specified views and tracks.
-BundleAdjustmentSummary BundleAdjustPartialReconstruction(
-    const BundleAdjustmentOptions& options,
-    const std::unordered_set<ViewId>& view_ids,
-    const std::unordered_set<TrackId>& track_ids,
-    Reconstruction* reconstruction) {
+BundleAdjustmentSummary
+BundleAdjustPartialReconstruction(const BundleAdjustmentOptions &options,
+                                  const std::unordered_set<ViewId> &view_ids,
+                                  const std::unordered_set<TrackId> &track_ids,
+                                  Reconstruction *reconstruction) {
   CHECK_NOTNULL(reconstruction);
 
   BundleAdjuster bundle_adjuster(options, reconstruction);
@@ -63,10 +63,11 @@ BundleAdjustmentSummary BundleAdjustPartialReconstruction(
 }
 
 // Bundle adjust the entire reconstruction.
-BundleAdjustmentSummary BundleAdjustReconstruction(
-    const BundleAdjustmentOptions& options, Reconstruction* reconstruction) {
-  const auto& view_ids = reconstruction->ViewIds();
-  const auto& track_ids = reconstruction->TrackIds();
+BundleAdjustmentSummary
+BundleAdjustReconstruction(const BundleAdjustmentOptions &options,
+                           Reconstruction *reconstruction) {
+  const auto &view_ids = reconstruction->ViewIds();
+  const auto &track_ids = reconstruction->TrackIds();
 
   BundleAdjuster bundle_adjuster(options, reconstruction);
   for (const ViewId view_id : view_ids) {
@@ -80,9 +81,9 @@ BundleAdjustmentSummary BundleAdjustReconstruction(
 }
 
 // Bundle adjust a single view.
-BundleAdjustmentSummary BundleAdjustView(const BundleAdjustmentOptions& options,
+BundleAdjustmentSummary BundleAdjustView(const BundleAdjustmentOptions &options,
                                          const ViewId view_id,
-                                         Reconstruction* reconstruction) {
+                                         Reconstruction *reconstruction) {
   BundleAdjustmentOptions ba_options = options;
   ba_options.linear_solver_type = ceres::DENSE_QR;
   ba_options.use_inner_iterations = false;
@@ -93,10 +94,9 @@ BundleAdjustmentSummary BundleAdjustView(const BundleAdjustmentOptions& options,
 }
 
 // Bundle adjust a single track.
-BundleAdjustmentSummary BundleAdjustTrack(
-    const BundleAdjustmentOptions& options,
-    const TrackId track_id,
-    Reconstruction* reconstruction) {
+BundleAdjustmentSummary
+BundleAdjustTrack(const BundleAdjustmentOptions &options,
+                  const TrackId track_id, Reconstruction *reconstruction) {
   BundleAdjustmentOptions ba_options = options;
   ba_options.linear_solver_type = ceres::DENSE_QR;
   ba_options.use_inner_iterations = false;
@@ -106,4 +106,32 @@ BundleAdjustmentSummary BundleAdjustTrack(
   return bundle_adjuster.Optimize();
 }
 
-}  // namespace theia
+// Bundle adjust a single track.
+BundleAdjustmentSummary
+BundleAdjustTrack(const BundleAdjustmentOptions &options,
+                  const TrackId track_id, Reconstruction *reconstruction,
+                  Eigen::Matrix3d *empirical_covariance_matrix,
+                  double *empirical_variance) {
+  BundleAdjustmentOptions ba_options = options;
+  ba_options.linear_solver_type = ceres::DENSE_QR;
+  ba_options.use_inner_iterations = false;
+
+  BundleAdjuster bundle_adjuster(ba_options, reconstruction);
+  bundle_adjuster.AddTrack(track_id);
+
+  BundleAdjustmentSummary summary = bundle_adjuster.Optimize();
+  if (!summary.success) {
+    *empirical_covariance_matrix = Eigen::Matrix3d::Identity();
+  } else {
+    *empirical_covariance_matrix =
+        bundle_adjuster.GetCovarianceForTrack(track_id);
+    // now get redundancy
+    const double r =
+        1.0 / (reconstruction->Track(track_id)->NumViews() * 2 - 3);
+    *empirical_variance = r * summary.final_cost;
+    *empirical_covariance_matrix *= *empirical_variance;
+  }
+  return summary;
+}
+
+} // namespace theia

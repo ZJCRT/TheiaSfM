@@ -77,7 +77,7 @@ void SetSolverOptions(const BundleAdjustmentOptions &options,
   solver_options->linear_solver_ordering.reset(
       new ceres::ParameterBlockOrdering);
 } // namespace
-}
+} // namespace
 BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions &options,
                                Reconstruction *reconstruction)
     : options_(options), reconstruction_(reconstruction) {
@@ -339,6 +339,9 @@ void BundleAdjuster::SetTrackConstant(const TrackId track_id) {
 void BundleAdjuster::SetTrackVariable(const TrackId track_id) {
   Track *track = reconstruction_->MutableTrack(track_id);
   problem_->SetParameterBlockVariable(track->MutablePoint()->data());
+  // set local tangent space paramatrization dimension to 3
+  problem_->SetParameterization(track->MutablePoint()->data(),
+                                new ceres::HomogeneousVectorParameterization(4));
 }
 
 void BundleAdjuster::SetCameraSchurGroups(const ViewId view_id) {
@@ -387,14 +390,14 @@ Eigen::Matrix3d BundleAdjuster::GetCovarianceForTrack(const TrackId track_id) {
   ceres::Covariance covariance_estimator(covariance_options_);
 
   std::vector<std::pair<const double *, const double *>> covariance_blocks = {
-      std::make_pair(track->Point().data(), track->Point().data()) };
+      std::make_pair(track->Point().data(), track->Point().data())};
 
   if (!problem_->IsParameterBlockConstant(track->Point().data()) &&
       problem_->HasParameterBlock(track->Point().data())) {
     covariance_estimator.Compute(covariance_blocks, problem_.get());
 
-    covariance_estimator.GetCovarianceMatrix({track->Point().data()},
-                                             covariance_matrix.data());
+    covariance_estimator.GetCovarianceMatrixInTangentSpace(
+        {track->Point().data()}, covariance_matrix.data());
   }
 
   return covariance_matrix;
@@ -420,10 +423,10 @@ void BundleAdjuster::GetCovarianceForTracks(
 
   for (size_t i = 0; i < est_track_ids.size(); ++i) {
     Eigen::Matrix3d cov_mat;
-    covariance_estimator.GetCovarianceMatrix({covariance_blocks[i].first},
-                                             cov_mat.data());
+    covariance_estimator.GetCovarianceMatrixInTangentSpace(
+        {covariance_blocks[i].first}, cov_mat.data());
     covariance_matrices->insert(std::make_pair(est_track_ids[i], cov_mat));
   }
 }
 
-} // namespace
+} // namespace theia

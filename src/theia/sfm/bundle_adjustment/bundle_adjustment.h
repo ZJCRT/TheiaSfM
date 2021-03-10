@@ -152,10 +152,15 @@ BundleAdjustmentSummary BundleAdjustView(const BundleAdjustmentOptions& options,
                                          Reconstruction* reconstruction);
 
 // Bundle adjust a single track.
-BundleAdjustmentSummary BundleAdjustTrack(
-    const BundleAdjustmentOptions& options,
+BundleAdjustmentSummary BundleAdjustTrack(const BundleAdjustmentOptions& options,
     const TrackId track_id,
     Reconstruction* reconstruction);
+
+// Bundle adjust a single track.
+BundleAdjustmentSummary BundleAdjustTrack(const BundleAdjustmentOptions& options,
+    const TrackId track_id,
+    Reconstruction* reconstruction,
+    Eigen::Matrix3d *empirical_covariance_matrix, double *empirical_variance);
 
 }  // namespace theia
 
